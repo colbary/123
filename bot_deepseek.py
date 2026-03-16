@@ -226,6 +226,7 @@ def load_fbi_rules():
     
     conn.commit()
     print(f"✅ Загружено {len(fbi_data)} правил ФБР")
+    return len(fbi_data)  # Возвращаем количество
 
 # ======================= МЕНЮ =======================
 def main_menu():
@@ -448,12 +449,12 @@ if __name__ == "__main__":
     print("ЗАГРУЗКА ПРАВИЛ ФБР И НАСТРОЙКА DEEPSEEK...")
     print("="*60)
     
-    load_fbi_rules()
+    rules_count = load_fbi_rules()
     
     print("\n" + "="*60)
     print("✅ БОТ ФБР С DEEPSEEK ГОТОВ")
     print("="*60)
-    print(f"📊 База данных: {len(fbi_data)} правил")
+    print(f"📊 База данных: {rules_count} правил")
     print("🚀 Бот запущен, используй кнопки или задавай вопросы!")
     
     bot.infinity_polling()
