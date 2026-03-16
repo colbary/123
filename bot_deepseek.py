@@ -4,6 +4,8 @@ import sqlite3
 import re
 import os
 import json
+import sys
+import time
 from telebot import types
 
 # ======================= КОНФИГ =======================
@@ -11,35 +13,58 @@ TELEGRAM_TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
 DEEPSEEK_API_KEY = "sk-f023bdd81cfe45a1a7ed3f69b3c86578"
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
+# Проверка наличия токена
+if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4":
+    print("✅ Токен Telegram настроен")
+
+if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY == "sk-f023bdd81cfe45a1a7ed3f69b3c86578":
+    print("✅ API ключ DeepSeek настроен")
+
+# Инициализация бота с обработкой ошибок
+try:
+    bot = telebot.TeleBot(TELEGRAM_TOKEN)
+    print("✅ Бот инициализирован")
+except Exception as e:
+    print(f"❌ Ошибка инициализации бота: {e}")
+    sys.exit(1)
 
 # ======================= БАЗА ДАННЫХ =======================
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fbi_rules.db')
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
 
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS fbi_rules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT,
-    title TEXT,
-    content TEXT
-)
-''')
-conn.commit()
+try:
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    cursor = conn.cursor()
+    print("✅ База данных подключена")
+except Exception as e:
+    print(f"❌ Ошибка подключения к БД: {e}")
+    sys.exit(1)
 
-# ======================= ЗАГРУЗКА ВСЕХ ПРАВИЛ =======================
-def load_fbi_rules():
-    cursor.execute("DELETE FROM fbi_rules")
-    
-    fbi_data = [
-        # Укроп-патрули
-        ("Укроп-патрули", "Общие положения",
-         """Укроп-патруль проводится в одном из городов с целью выявления укроптических веществ у граждан штата, либо сотрудников государственных структур, проводится сотрудниками ФБР, совместно с сотрудниками Министерства Юстиции.
+# Создание таблицы
+try:
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS fbi_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT,
+        title TEXT,
+        content TEXT
+    )
+    ''')
+    conn.commit()
+    print("✅ Таблица создана/проверена")
+except Exception as e:
+    print(f"❌ Ошибка создания таблицы: {e}")
+    sys.exit(1)
+
+# ======================= ДАННЫЕ =======================
+# Вынесены из функции для доступности
+FBI_DATA = [
+    # Укроп-патрули
+    ("Укроп-патрули", "Общие положения",
+     """Укроп-патруль проводится в одном из городов с целью выявления укроптических веществ у граждан штата, либо сотрудников государственных структур, проводится сотрудниками ФБР, совместно с сотрудниками Министерства Юстиции.
 Раз в неделю Директор/Заместитель ФБР может составить приказ о патрулировании в одной из юрисдикций: LS, RC, SF, LV. После ввода указа сотрудники ФБР имеют право начинать и проводить укроп-патрулирование строго в указанной юрисдикции."""),
 
-        ("Укроп-патрули", "Правила проведения",
-         """1) Все аресты на укроп-патруле должны быть записаны на видеозапись, по всем правилам опровержений.
+    ("Укроп-патрули", "Правила проведения",
+     """1) Все аресты на укроп-патруле должны быть записаны на видеозапись, по всем правилам опровержений.
 2) Запрещено проводить обыски/аресты на закрашенных территориях (Исключение: Игрок ушел туда от преследования).
 3) Длительность укроп-патруля должна быть не менее 20 минут.
 4) Допускается не более одного укроп-патруля в день.
@@ -48,22 +73,22 @@ def load_fbi_rules():
 7) Запрещено обыскивать лидеров/заместителей гос. структур и сотрудников исполняющих свои служебный обязанности.
 8) Руководящий агент обязан оставлять отчетность."""),
 
-        # Внутренние инструкции ФБР
-        ("ФБР", "Глава 1. Общие правила",
-         """1.1. Внутренние инструкции являются обязательным для исполнения всеми сотрудниками ФБР нормативным документом.
+    # Внутренние инструкции ФБР
+    ("ФБР", "Глава 1. Общие правила",
+     """1.1. Внутренние инструкции являются обязательным для исполнения всеми сотрудниками ФБР нормативным документом.
 1.2. Любое нарушение внутренних инструкций влечет за собой дисциплинарную ответственность.
 1.3. Незнание внутренних инструкций не освобождает сотрудника от ответственности."""),
 
-        ("ФБР", "Глава 2. Основные обязанности",
-         """2.1. Обеспечивать государственную безопасность.
+    ("ФБР", "Глава 2. Основные обязанности",
+     """2.1. Обеспечивать государственную безопасность.
 2.2. Действовать в строгом соответствии с внутренними инструкциями.
 2.3. Строго выполнять приказы старших по иерархии.
 2.4. Выявлять, предупреждать и пресекать преступную деятельность.
 2.5. Возбуждать уголовные дела в отношении госслужащих 6+ ранга и членов ОПГ 8+ ранга.
 2.6. Производить пресечение укроп-трафика."""),
 
-        ("ФБР", "Глава 3. Запреты и ограничения",
-         """3.1. Оспаривать приказы старших.
+    ("ФБР", "Глава 3. Запреты и ограничения",
+     """3.1. Оспаривать приказы старших.
 3.2. Вмешиваться в личную жизнь сотрудников.
 3.3. Использовать полномочия в корыстных целях.
 3.4. Проводить процессуальные действия без ордера.
@@ -72,15 +97,15 @@ def load_fbi_rules():
 3.7. Иметь связи с преступными организациями.
 3.8. Стажерам запрещено рассекречивать личность."""),
 
-        ("ФБР", "Глава 4. Агентам разрешено",
-         """4.1. Надевать форму SWAT.
+    ("ФБР", "Глава 4. Агентам разрешено",
+     """4.1. Надевать форму SWAT.
 4.2. Запрашивать ордер на задержание более трёх суток, допрос, осмотр дома, снятие видеозаписей.
 4.3. Покупать запрещенные вещества для процессуальных действий.
 4.4. Открывать огонь по проникшим в офис ФБР.
 4.5. Вести делопроизводство в частных организациях."""),
 
-        ("ФБР", "Глава 5. Агенты ФБР имеют право",
-         """5.1. Подчиняться только руководству ФБР и Губернатору.
+    ("ФБР", "Глава 5. Агенты ФБР имеют право",
+     """5.1. Подчиняться только руководству ФБР и Губернатору.
 5.2. Показывать удостоверение при процессуальных действиях.
 5.3. Не рассекречивать личность.
 5.4. Останавливать госслужащих.
@@ -88,145 +113,153 @@ def load_fbi_rules():
 5.6. Открывать огонь при сопротивлении.
 5.7. Обыскивать перед выдачей пропуска."""),
 
-        # Процесс повышения
-        ("Повышение", "Стажер [1] - Испытательный агент [2]",
-         """Пройти обязательный экзамен в Discord руководящему составу."""),
+    # Процесс повышения
+    ("Повышение", "Стажер [1] - Испытательный агент [2]",
+     """Пройти обязательный экзамен в Discord руководящему составу."""),
 
-        ("Повышение", "Испытательный агент [2] - Младший агент [3]",
-         """Сдать экзамен по экспертизам (8+ рангу). Опознать гражданина системой NGI."""),
+    ("Повышение", "Испытательный агент [2] - Младший агент [3]",
+     """Сдать экзамен по экспертизам (8+ рангу). Опознать гражданина системой NGI."""),
 
-        ("Повышение", "Младший агент [3] - Агент [4]",
-         """Написать пробное уголовное дело. Выполнить 7 пунктов из обязанностей."""),
+    ("Повышение", "Младший агент [3] - Агент [4]",
+     """Написать пробное уголовное дело. Выполнить 7 пунктов из обязанностей."""),
 
-        ("Повышение", "Агент [4] - Старший агент [5]",
-         """Выполнить 20 пунктов из обязанностей. 10 из них - оперативно-следственные."""),
+    ("Повышение", "Агент [4] - Старший агент [5]",
+     """Выполнить 20 пунктов из обязанностей. 10 из них - оперативно-следственные."""),
 
-        ("Повышение", "Старший агент [5] - Специальный агент [6]",
-         """Выполнить 25 пунктов из обязанностей. 13 из них - оперативно-следственные."""),
+    ("Повышение", "Старший агент [5] - Специальный агент [6]",
+     """Выполнить 25 пунктов из обязанностей. 13 из них - оперативно-следственные."""),
 
-        ("Повышение", "Специальный агент [6] - Зам. главы отдела [7]",
-         """Выполнить 30 пунктов из обязанностей. 18 из них - оперативно-следственные."""),
+    ("Повышение", "Специальный агент [6] - Зам. главы отдела [7]",
+     """Выполнить 30 пунктов из обязанностей. 18 из них - оперативно-следственные."""),
 
-        ("Повышение", "Зам. главы отдела [7] - Глава отдела [8]",
-         """Выполнить 35 пунктов из обязанностей. 20 из них - оперативно-следственные."""),
+    ("Повышение", "Зам. главы отдела [7] - Глава отдела [8]",
+     """Выполнить 35 пунктов из обязанностей. 20 из них - оперативно-следственные."""),
 
-        ("Повышение", "Глава отдела [8] - Зам. директора [9]",
-         """Выполнить 40 пунктов из обязанностей. Минимум 3 Screenshot-ситуации."""),
+    ("Повышение", "Глава отдела [8] - Зам. директора [9]",
+     """Выполнить 40 пунктов из обязанностей. Минимум 3 Screenshot-ситуации."""),
 
-        # Отделы ФБР
-        ("Отделы", "Recruiting Branch (RB)",
-         """Отдел подготовки к работе в ФБР. Стажеры [1] проходят обучение до агента [4]."""),
+    # Отделы ФБР
+    ("Отделы", "Recruiting Branch (RB)",
+     """Отдел подготовки к работе в ФБР. Стажеры [1] проходят обучение до агента [4]."""),
 
-        ("Отделы", "Office of Professional Responsibility (OPR)",
-         """Контроль за сотрудниками правоохранительных органов. Расследует преступления и нарушения."""),
+    ("Отделы", "Office of Professional Responsibility (OPR)",
+     """Контроль за сотрудниками правоохранительных органов. Расследует преступления и нарушения."""),
 
-        ("Отделы", "Criminal Investigative Division (CID)",
-         """Расследование преступлений: насильственные, организованная преступность, кибербезопасность."""),
+    ("Отделы", "Criminal Investigative Division (CID)",
+     """Расследование преступлений: насильственные, организованная преступность, кибербезопасность."""),
 
-        ("Отделы", "National Security Branch (NSB)",
-         """Обеспечение национальной безопасности: контрразведка, антитеррор, агентурная работа."""),
+    ("Отделы", "National Security Branch (NSB)",
+     """Обеспечение национальной безопасности: контрразведка, антитеррор, агентурная работа."""),
 
-        ("Отделы", "Human Resource Branche (HRB)",
-         """Рекрутинг и подготовка персонала. Внедрение в госструктуры."""),
+    ("Отделы", "Human Resource Branche (HRB)",
+     """Рекрутинг и подготовка персонала. Внедрение в госструктуры."""),
 
-        # Спец. выговоры и увольнения
-        ("Наказания", "Выдача спец. выговоров | /gwarn",
-         """Специальные выговоры могут выдавать агенты с должности Специальный агент [6]. Для выдачи выговора нужно зафиксировать нарушение на боди-камеру. Доставка в офис не требуется. В причине указывать Н.У.[] с организацией."""),
+    # Спец. выговоры и увольнения
+    ("Наказания", "Выдача спец. выговоров | /gwarn",
+     """Специальные выговоры могут выдавать агенты с должности Специальный агент [6]. Для выдачи выговора нужно зафиксировать нарушение на боди-камеру. Доставка в офис не требуется. В причине указывать Н.У.[] с организацией."""),
 
-        ("Наказания", "Увольнения | /dismiss",
-         """За грубые нарушения устава или ЕФК - увольнение. Команда /dismiss доступна для старших агентов [5] и выше. Перед увольнением нужно доставить в офис ФБР для допроса. Применяется к госслужащим до 4 ранга."""),
+    ("Наказания", "Увольнения | /dismiss",
+     """За грубые нарушения устава или ЕФК - увольнение. Команда /dismiss доступна для старших агентов [5] и выше. Перед увольнением нужно доставить в офис ФБР для допроса. Применяется к госслужащим до 4 ранга."""),
 
-        ("Наказания", "Увольнения | /demoute",
-         """Для увольнения 5+ рангов любых гос. организаций. Пользоваться могут только зам. директора и директор ФБР."""),
+    ("Наказания", "Увольнения | /demoute",
+     """Для увольнения 5+ рангов любых гос. организаций. Пользоваться могут только зам. директора и директор ФБР."""),
 
-        # Автопарк
-        ("Автопарк", "Cadillac Escalade",
-         """Испытательный агент [2]. Без маячков, не для маскировки."""),
+    # Автопарк
+    ("Автопарк", "Cadillac Escalade",
+     """Испытательный агент [2]. Без маячков, не для маскировки."""),
 
-        ("Автопарк", "Toyota Land Cruiser",
-         """Младший агент [3]. С маячками, не для маскировки."""),
+    ("Автопарк", "Toyota Land Cruiser",
+     """Младший агент [3]. С маячками, не для маскировки."""),
 
-        ("Автопарк", "Mustang RTR",
-         """Заместитель Старший Агент [5]. Для ЧС."""),
+    ("Автопарк", "Mustang RTR",
+     """Заместитель Старший Агент [5]. Для ЧС."""),
 
-        ("Автопарк", "Corvette C8",
-         """Заместитель Специальный Агент [6]. Для ЧС."""),
+    ("Автопарк", "Corvette C8",
+     """Заместитель Специальный Агент [6]. Для ЧС."""),
 
-        ("Автопарк", "Dodge Charger",
-         """Старший Агент [5]."""),
+    ("Автопарк", "Dodge Charger",
+     """Старший Агент [5]."""),
 
-        ("Автопарк", "Enforcer",
-         """Старший агент [5]."""),
+    ("Автопарк", "Enforcer",
+     """Старший агент [5]."""),
 
-        ("Автопарк", "FBI Maverick",
-         """Глава Отдела [8]. Вертолёт."""),
+    ("Автопарк", "FBI Maverick",
+     """Глава Отдела [8]. Вертолёт."""),
 
-        # Маскировка
-        ("Маскировка", "Основные положения",
-         """Система маскировки для внедрения в нелегальные группировки. Нужно согласование с руководством."""),
+    # Маскировка
+    ("Маскировка", "Основные положения",
+     """Система маскировки для внедрения в нелегальные группировки. Нужно согласование с руководством."""),
 
-        ("Маскировка", "Типы маскировки",
-         """1. Стандартная - наружная слежка, [4]+.
+    ("Маскировка", "Типы маскировки",
+     """1. Стандартная - наружная слежка, [4]+.
 2. Средняя - внедрение в уличные группировки, [5]+.
 3. Государственная - внедрение в госструктуры, [6]+."""),
 
-        # Коды
-        ("Коды", "Тэн-коды (10-коды)",
-         """10-0 Убийство. 10-1 Встреча. 10-2 Патруль. 10-3 Радиомолчание. 10-4 Принято. 10-5 Повторите. 10-6 Не принято. 10-7 Ожидайте. 10-8 Занят. 10-9 Скрытый. 10-10 Последнее место. 10-11 Свободен. 10-12 Вижу. 10-13 Напарник. 10-14 Инфо. 10-15 Арест. 10-18 Поддержка. 10-21 Статус. 10-27 Инфо о человеке. 10-28 Инфо об авто. 10-29 Ордер. 10-30 Вызов обработан. 10-36 Поддержка. 10-37 Меняю отдел. 10-38 Прибыл. 10-39 Объединение. 10-40 Детектив. 10-46 Обыск. 10-52 Медики. 10-53 Эвакуатор. 10-55 Трафик-стоп. 10-57 Погоня. 10-66 Трафик-стоп риска. 10-71 Один. 10-72 Два. 10-73 Три. 10-74 Четыре. 10-87 Убит. 10-88 Офицер убит. 10-99 Урегулировано. 10-90 Нарушение юрисдикции."""),
+    # Коды
+    ("Коды", "Тэн-коды (10-коды)",
+     """10-0 Убийство. 10-1 Встреча. 10-2 Патруль. 10-3 Радиомолчание. 10-4 Принято. 10-5 Повторите. 10-6 Не принято. 10-7 Ожидайте. 10-8 Занят. 10-9 Скрытый. 10-10 Последнее место. 10-11 Свободен. 10-12 Вижу. 10-13 Напарник. 10-14 Инфо. 10-15 Арест. 10-18 Поддержка. 10-21 Статус. 10-27 Инфо о человеке. 10-28 Инфо об авто. 10-29 Ордер. 10-30 Вызов обработан. 10-36 Поддержка. 10-37 Меняю отдел. 10-38 Прибыл. 10-39 Объединение. 10-40 Детектив. 10-46 Обыск. 10-52 Медики. 10-53 Эвакуатор. 10-55 Трафик-стоп. 10-57 Погоня. 10-66 Трафик-стоп риска. 10-71 Один. 10-72 Два. 10-73 Три. 10-74 Четыре. 10-87 Убит. 10-88 Офицер убит. 10-99 Урегулировано. 10-90 Нарушение юрисдикции."""),
 
-        ("Коды", "Ситуационные коды (CODE)",
-         """CODE 1 Поиск. CODE 2 Рутинный. CODE 2 HIGH Приоритетный. CODE 3 Срочный. CODE 4 Помощь не требуется. CODE 4 ADAM Готовность. CODE 5 Разъединение. CODE 5 EDWARD Для ASD. CODE 6 На ситуации. CODE 6 ADAM Запрос помощи. CODE 6 CHARLES Инфо. CODE 6 GEORGE Банда. CODE 6 MARY Бой. CODE 7 Убытие. CODE 8 Пожар. CODE 8 ADAM Помощь. CODE 10 Запрос диспетчера. CODE 12 Ложная тревога. CODE 20 Необычное. CODE 30 Сигнализация. CODE 37 Угон. CODE ROBERT RIFLE Винтовка. CODE ROBERT SLUG Дробовик. CODE TOM Тазер. CODE 100 Пути отхода."""),
+    ("Коды", "Ситуационные коды (CODE)",
+     """CODE 1 Поиск. CODE 2 Рутинный. CODE 2 HIGH Приоритетный. CODE 3 Срочный. CODE 4 Помощь не требуется. CODE 4 ADAM Готовность. CODE 5 Разъединение. CODE 5 EDWARD Для ASD. CODE 6 На ситуации. CODE 6 ADAM Запрос помощи. CODE 6 CHARLES Инфо. CODE 6 GEORGE Банда. CODE 6 MARY Бой. CODE 7 Убытие. CODE 8 Пожар. CODE 8 ADAM Помощь. CODE 10 Запрос диспетчера. CODE 12 Ложная тревога. CODE 20 Необычное. CODE 30 Сигнализация. CODE 37 Угон. CODE ROBERT RIFLE Винтовка. CODE ROBERT SLUG Дробовик. CODE TOM Тазер. CODE 100 Пути отхода."""),
 
-        # SWAT
-        ("SWAT", "Общая информация",
-         """Элитные подразделения с вооружением армейского образца. Специальные тактики."""),
+    # SWAT
+    ("SWAT", "Общая информация",
+     """Элитные подразделения с вооружением армейского образца. Специальные тактики."""),
 
-        ("SWAT", "Основные задачи",
-         """Освобождение заложников, контртеррор, захват террористов, штурм, охрана важных лиц."""),
+    ("SWAT", "Основные задачи",
+     """Освобождение заложников, контртеррор, захват террористов, штурм, охрана важных лиц."""),
 
-        # Процессуальные действия
-        ("Процессуальные действия", "Осмотр места преступления",
-         """На месте можно найти: гильзы, пули, оружие, отпечатки, свидетелей, камеры. Записи с камер - после ордера."""),
+    # Процессуальные действия
+    ("Процессуальные действия", "Осмотр места преступления",
+     """На месте можно найти: гильзы, пули, оружие, отпечатки, свидетелей, камеры. Записи с камер - после ордера."""),
 
-        ("Процессуальные действия", "Баллистическая экспертиза",
-         """Изучают оружие, патроны, гильзы, пули, следы. Выясняют: из какого оружия стреляли, расстояние, направление."""),
+    ("Процессуальные действия", "Баллистическая экспертиза",
+     """Изучают оружие, патроны, гильзы, пули, следы. Выясняют: из какого оружия стреляли, расстояние, направление."""),
 
-        ("Процессуальные действия", "Дактилоскопическая экспертиза",
-         """Идентификация по отпечаткам пальцев."""),
+    ("Процессуальные действия", "Дактилоскопическая экспертиза",
+     """Идентификация по отпечаткам пальцев."""),
 
-        ("Процессуальные действия", "Проведение задержаний",
-         """Нужен ордер. Задержание в составе трех агентов. Представиться, показать ордер. При перевозке - правило Миранды."""),
+    ("Процессуальные действия", "Проведение задержаний",
+     """Нужен ордер. Задержание в составе трех агентов. Представиться, показать ордер. При перевозке - правило Миранды."""),
 
-        ("Процессуальные действия", "Правило Миранды",
-         """Вы имеете право хранить молчание. Всё, что вы скажете, может быть использовано против вас в суде."""),
+    ("Процессуальные действия", "Правило Миранды",
+     """Вы имеете право хранить молчание. Всё, что вы скажете, может быть использовано против вас в суде."""),
 
-        ("Процессуальные действия", "Допрос",
-         """Порядок: завести, обыскать, включить запись/заглушки, установить личность, зачитать Миранду, предъявить обвинения."""),
+    ("Процессуальные действия", "Допрос",
+     """Порядок: завести, обыскать, включить запись/заглушки, установить личность, зачитать Миранду, предъявить обвинения."""),
 
-        # CJIS
-        ("CJIS", "Общие положения",
-         """Система CJIS: NGI, NCIC, NICS, UCRS. Информация для правоохранительных органов."""),
+    # CJIS
+    ("CJIS", "Общие положения",
+     """Система CJIS: NGI, NCIC, NICS, UCRS. Информация для правоохранительных органов."""),
 
-        ("CJIS", "NGI",
-         """Биометрическая идентификация: отпечатки пальцев, ладоней, радужка, лицо."""),
+    ("CJIS", "NGI",
+     """Биометрическая идентификация: отпечатки пальцев, ладоней, радужка, лицо."""),
 
-        ("CJIS", "NCIC",
-         """Центр информации о преступности. Поиск беглецов, пропавших, украденного имущества."""),
+    ("CJIS", "NCIC",
+     """Центр информации о преступности. Поиск беглецов, пропавших, украденного имущества."""),
 
-        ("CJIS", "NICS",
-         """Проверка криминального прошлого для покупки оружия."""),
+    ("CJIS", "NICS",
+     """Проверка криминального прошлого для покупки оружия."""),
 
-        ("CJIS", "UCRS",
-         """Статистика преступности с 1930 года."""),
-    ]
-    
-    for category, title, content in fbi_data:
-        cursor.execute("INSERT INTO fbi_rules (category, title, content) VALUES (?, ?, ?)", 
-                      (category, title, content))
-    
-    conn.commit()
-    print(f"✅ Загружено {len(fbi_data)} правил ФБР")
-    return len(fbi_data)  # Возвращаем количество
+    ("CJIS", "UCRS",
+     """Статистика преступности с 1930 года."""),
+]
+
+# ======================= ЗАГРУЗКА ПРАВИЛ =======================
+def load_fbi_rules():
+    try:
+        cursor.execute("DELETE FROM fbi_rules")
+        
+        for category, title, content in FBI_DATA:
+            cursor.execute("INSERT INTO fbi_rules (category, title, content) VALUES (?, ?, ?)", 
+                          (category, title, content))
+        
+        conn.commit()
+        print(f"✅ Загружено {len(FBI_DATA)} правил ФБР")
+        return len(FBI_DATA)
+    except Exception as e:
+        print(f"❌ Ошибка загрузки данных: {e}")
+        return 0
 
 # ======================= МЕНЮ =======================
 def main_menu():
@@ -248,27 +281,35 @@ def main_menu():
 
 # ======================= ПОИСК =======================
 def search_rules(query):
-    query = query.lower().strip()
-    if len(query) < 2:
+    try:
+        query = query.lower().strip()
+        if len(query) < 2:
+            return []
+        
+        cursor.execute('''
+        SELECT id, category, title, content FROM fbi_rules 
+        WHERE title LIKE ? OR content LIKE ?
+        LIMIT 10
+        ''', (f'%{query}%', f'%{query}%'))
+        
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка поиска: {e}")
         return []
-    
-    cursor.execute('''
-    SELECT id, category, title, content FROM fbi_rules 
-    WHERE title LIKE ? OR content LIKE ?
-    LIMIT 10
-    ''', (f'%{query}%', f'%{query}%'))
-    
-    return cursor.fetchall()
 
-# ======================= ПОЛУЧИТЬ ВСЕ ПРАВИЛА ДЛЯ DEEPSEEK =======================
+# ======================= ВСЕ ПРАВИЛА ДЛЯ DEEPSEEK =======================
 def get_all_rules_text():
-    cursor.execute('SELECT category, title, content FROM fbi_rules')
-    rules = cursor.fetchall()
-    
-    text = "ПРАВИЛА ФЕДЕРАЛЬНОГО БЮРО РАССЛЕДОВАНИЙ:\n\n"
-    for category, title, content in rules:
-        text += f"=== {category} - {title} ===\n{content}\n\n"
-    return text
+    try:
+        cursor.execute('SELECT category, title, content FROM fbi_rules')
+        rules = cursor.fetchall()
+        
+        text = "ПРАВИЛА ФЕДЕРАЛЬНОГО БЮРО РАССЛЕДОВАНИЙ:\n\n"
+        for category, title, content in rules:
+            text += f"=== {category} - {title} ===\n{content}\n\n"
+        return text
+    except Exception as e:
+        print(f"Ошибка получения правил: {e}")
+        return "Ошибка загрузки правил"
 
 # ======================= ОТВЕТ ЧЕРЕЗ DEEPSEEK =======================
 def get_deepseek_answer(question):
@@ -306,142 +347,176 @@ def get_deepseek_answer(question):
         else:
             return f"❌ Ошибка DeepSeek: {response.status_code}"
             
+    except requests.exceptions.Timeout:
+        return "❌ Таймаут при обращении к DeepSeek"
+    except requests.exceptions.ConnectionError:
+        return "❌ Ошибка подключения к DeepSeek"
     except Exception as e:
         return f"❌ Ошибка: {str(e)}"
 
 # ======================= ПРАВИЛА ПО КАТЕГОРИИ =======================
 def get_rules_by_category(category):
-    cursor.execute('''
-    SELECT id, title FROM fbi_rules WHERE category = ? ORDER BY title
-    ''', (category,))
-    return cursor.fetchall()
+    try:
+        cursor.execute('''
+        SELECT id, title FROM fbi_rules WHERE category = ? ORDER BY title
+        ''', (category,))
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка получения категории: {e}")
+        return []
 
 # ======================= КОМАНДЫ =======================
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    bot.send_message(
-        message.chat.id,
-        "👮‍♂️ **ФЕДЕРАЛЬНОЕ БЮРО РАССЛЕДОВАНИЙ**\n\n"
-        "Официальный справочник правил ФБР с искусственным интеллектом DeepSeek.\n\n"
-        "📌 **Выберите раздел в меню** или просто задайте вопрос.\n"
-        "🤖 **Кнопка «Спросить DeepSeek»** — задайте любой вопрос, и ИИ ответит на основе всех правил.",
-        parse_mode="Markdown",
-        reply_markup=main_menu()
-    )
+    try:
+        bot.send_message(
+            message.chat.id,
+            "👮‍♂️ **ФЕДЕРАЛЬНОЕ БЮРО РАССЛЕДОВАНИЙ**\n\n"
+            "Официальный справочник правил ФБР с искусственным интеллектом DeepSeek.\n\n"
+            "📌 **Выберите раздел в меню** или просто задайте вопрос.\n"
+            "🤖 **Кнопка «Спросить DeepSeek»** — задайте любой вопрос, и ИИ ответит на основе всех правил.",
+            parse_mode="Markdown",
+            reply_markup=main_menu()
+        )
+    except Exception as e:
+        print(f"Ошибка в start: {e}")
 
 @bot.message_handler(func=lambda message: message.text == "🔎 Поиск")
 def search_prompt(message):
-    msg = bot.send_message(message.chat.id, "🔎 Введите поисковый запрос:")
-    bot.register_next_step_handler(msg, search_results)
+    try:
+        msg = bot.send_message(message.chat.id, "🔎 Введите поисковый запрос:")
+        bot.register_next_step_handler(msg, search_results)
+    except Exception as e:
+        print(f"Ошибка в поиске: {e}")
 
 def search_results(message):
-    query = message.text
-    results = search_rules(query)
-    
-    if not results:
-        bot.send_message(message.chat.id, "❌ Ничего не найдено.", reply_markup=main_menu())
-        return
-    
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for rule_id, category, title, content in results[:10]:
-        btn = types.InlineKeyboardButton(f"{category} - {title[:30]}", callback_data=f"rule_{rule_id}")
-        markup.add(btn)
-    
-    bot.send_message(message.chat.id, f"🔎 Найдено по запросу '{query}':", reply_markup=markup)
+    try:
+        query = message.text
+        results = search_rules(query)
+        
+        if not results:
+            bot.send_message(message.chat.id, "❌ Ничего не найдено.", reply_markup=main_menu())
+            return
+        
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        for rule_id, category, title, content in results[:10]:
+            btn = types.InlineKeyboardButton(f"{category} - {title[:30]}", callback_data=f"rule_{rule_id}")
+            markup.add(btn)
+        
+        bot.send_message(message.chat.id, f"🔎 Найдено по запросу '{query}':", reply_markup=markup)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: message.text == "🤖 Спросить DeepSeek")
 def deepseek_prompt(message):
-    msg = bot.send_message(message.chat.id, "🤖 Задайте ваш вопрос по правилам ФБР:")
-    bot.register_next_step_handler(msg, deepseek_answer)
+    try:
+        msg = bot.send_message(message.chat.id, "🤖 Задайте ваш вопрос по правилам ФБР:")
+        bot.register_next_step_handler(msg, deepseek_answer)
+    except Exception as e:
+        print(f"Ошибка: {e}")
 
 def deepseek_answer(message):
-    bot.send_chat_action(message.chat.id, 'typing')
-    question = message.text
-    answer = get_deepseek_answer(question)
-    bot.send_message(message.chat.id, answer, reply_markup=main_menu())
+    try:
+        bot.send_chat_action(message.chat.id, 'typing')
+        question = message.text
+        answer = get_deepseek_answer(question)
+        bot.send_message(message.chat.id, answer, reply_markup=main_menu())
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания"])
 def category_handler(message):
-    category_map = {
-        "📋 Инструкции": "ФБР",
-        "📈 Повышение": "Повышение",
-        "🏢 Отделы": "Отделы",
-        "🚔 Автопарк": "Автопарк",
-        "🎭 Маскировка": "Маскировка",
-        "📟 Коды": "Коды",
-        "🔫 SWAT": "SWAT",
-        "⚖️ Процесс": "Процессуальные действия",
-        "💻 CJIS": "CJIS",
-        "⚠️ Наказания": "Наказания"
-    }
-    
-    category = category_map[message.text]
-    rules = get_rules_by_category(category)
-    
-    if not rules:
-        bot.send_message(message.chat.id, f"❌ В разделе нет правил.", reply_markup=main_menu())
-        return
-    
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for rule_id, title in rules[:10]:
-        btn = types.InlineKeyboardButton(title[:40], callback_data=f"rule_{rule_id}")
-        markup.add(btn)
-    
-    bot.send_message(message.chat.id, f"📋 **{message.text}**", parse_mode="Markdown", reply_markup=markup)
+    try:
+        category_map = {
+            "📋 Инструкции": "ФБР",
+            "📈 Повышение": "Повышение",
+            "🏢 Отделы": "Отделы",
+            "🚔 Автопарк": "Автопарк",
+            "🎭 Маскировка": "Маскировка",
+            "📟 Коды": "Коды",
+            "🔫 SWAT": "SWAT",
+            "⚖️ Процесс": "Процессуальные действия",
+            "💻 CJIS": "CJIS",
+            "⚠️ Наказания": "Наказания"
+        }
+        
+        category = category_map[message.text]
+        rules = get_rules_by_category(category)
+        
+        if not rules:
+            bot.send_message(message.chat.id, f"❌ В разделе нет правил.", reply_markup=main_menu())
+            return
+        
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        for rule_id, title in rules[:10]:
+            btn = types.InlineKeyboardButton(title[:40], callback_data=f"rule_{rule_id}")
+            markup.add(btn)
+        
+        bot.send_message(message.chat.id, f"📋 **{message.text}**", parse_mode="Markdown", reply_markup=markup)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("rule_"))
 def rule_callback(call):
-    rule_id = int(call.data.replace("rule_", ""))
-    cursor.execute("SELECT category, title, content FROM fbi_rules WHERE id = ?", (rule_id,))
-    rule = cursor.fetchone()
-    
-    if rule:
-        category, title, content = rule
-        text = f"**{category}**\n**{title}**\n\n{content}"
+    try:
+        rule_id = int(call.data.replace("rule_", ""))
+        cursor.execute("SELECT category, title, content FROM fbi_rules WHERE id = ?", (rule_id,))
+        rule = cursor.fetchone()
         
-        if len(text) > 4000:
-            parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
-            for part in parts:
-                bot.send_message(call.message.chat.id, part, parse_mode="Markdown")
-        else:
-            bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-    
-    bot.answer_callback_query(call.id)
+        if rule:
+            category, title, content = rule
+            text = f"**{category}**\n**{title}**\n\n{content}"
+            
+            if len(text) > 4000:
+                parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
+                for part in parts:
+                    bot.send_message(call.message.chat.id, part, parse_mode="Markdown")
+            else:
+                bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+        
+        bot.answer_callback_query(call.id)
+    except Exception as e:
+        bot.answer_callback_query(call.id, f"Ошибка: {e}")
 
 @bot.message_handler(func=lambda message: True)
 def handle_question(message):
-    if message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания", "🔎 Поиск", "🤖 Спросить DeepSeek"]:
-        return
-    
-    bot.send_chat_action(message.chat.id, 'typing')
-    
-    query = message.text
-    results = search_rules(query)
-    
-    if results:
-        response = f"🔍 **Найдено по запросу:**\n\n"
-        for i, (rule_id, category, title, content) in enumerate(results[:3], 1):
-            preview = content[:200] + "..." if len(content) > 200 else content
-            response += f"{i}. **{category}** - {title}\n{preview}\n\n"
+    try:
+        if message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания", "🔎 Поиск", "🤖 Спросить DeepSeek"]:
+            return
         
-        markup = types.InlineKeyboardMarkup()
-        for rule_id, category, title, content in results[:3]:
-            btn = types.InlineKeyboardButton(f"📄 {title[:20]}", callback_data=f"rule_{rule_id}")
+        bot.send_chat_action(message.chat.id, 'typing')
+        
+        query = message.text
+        results = search_rules(query)
+        
+        if results:
+            response = f"🔍 **Найдено по запросу:**\n\n"
+            for i, (rule_id, category, title, content) in enumerate(results[:3], 1):
+                preview = content[:200] + "..." if len(content) > 200 else content
+                response += f"{i}. **{category}** - {title}\n{preview}\n\n"
+            
+            markup = types.InlineKeyboardMarkup()
+            for rule_id, category, title, content in results[:3]:
+                btn = types.InlineKeyboardButton(f"📄 {title[:20]}", callback_data=f"rule_{rule_id}")
+                markup.add(btn)
+            
+            bot.send_message(message.chat.id, response, reply_markup=markup)
+        else:
+            markup = types.InlineKeyboardMarkup()
+            btn = types.InlineKeyboardButton("🤖 Спросить DeepSeek", callback_data="ask_deepseek")
             markup.add(btn)
-        
-        bot.send_message(message.chat.id, response, reply_markup=markup)
-    else:
-        # Если ничего не найдено, предлагаем спросить DeepSeek
-        markup = types.InlineKeyboardMarkup()
-        btn = types.InlineKeyboardButton("🤖 Спросить DeepSeek", callback_data="ask_deepseek")
-        markup.add(btn)
-        bot.send_message(message.chat.id, "❌ Ничего не найдено в базе. Хотите спросить DeepSeek?", reply_markup=markup)
+            bot.send_message(message.chat.id, "❌ Ничего не найдено в базе. Хотите спросить DeepSeek?", reply_markup=markup)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
 
 @bot.callback_query_handler(func=lambda call: call.data == "ask_deepseek")
 def ask_deepseek_callback(call):
-    msg = bot.send_message(call.message.chat.id, "🤖 Задайте ваш вопрос:")
-    bot.register_next_step_handler(msg, deepseek_answer)
-    bot.answer_callback_query(call.id)
+    try:
+        msg = bot.send_message(call.message.chat.id, "🤖 Задайте ваш вопрос:")
+        bot.register_next_step_handler(msg, deepseek_answer)
+        bot.answer_callback_query(call.id)
+    except Exception as e:
+        bot.answer_callback_query(call.id, f"Ошибка: {e}")
 
 # ======================= ЗАПУСК =======================
 if __name__ == "__main__":
@@ -456,5 +531,12 @@ if __name__ == "__main__":
     print("="*60)
     print(f"📊 База данных: {rules_count} правил")
     print("🚀 Бот запущен, используй кнопки или задавай вопросы!")
+    print("⚠️ Для остановки: Ctrl+C")
     
-    bot.infinity_polling()
+    # Запуск с обработкой прерывания
+    try:
+        bot.infinity_polling(timeout=60, long_polling_timeout=60)
+    except KeyboardInterrupt:
+        print("\n👋 Бот остановлен")
+    except Exception as e:
+        print(f"\n❌ Ошибка: {e}")
