@@ -7,7 +7,7 @@ from telebot import types
 
 # ======================= КОНФИГ =======================
 TELEGRAM_TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
-GEMINI_API_KEY = "AIzaSyB..."  # ⚡ ВСТАВЬ СВОЙ КЛЮЧ СЮДА
+GEMINI_API_KEY = "AIzaSyAgYKG8g1BpkHPlVWM54_skVFfBeCQOeVU"  # ⚡ ВСТАВЬ СВОЙ КЛЮЧ СЮДА
 
 # Настройка Gemini
 genai.configure(api_key=GEMINI_API_KEY)
