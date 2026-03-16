@@ -1,62 +1,36 @@
 import telebot
-import requests
+import google.generativeai as genai
 import sqlite3
 import re
 import os
-import json
-import sys
-import time
 from telebot import types
 
 # ======================= КОНФИГ =======================
 TELEGRAM_TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
-DEEPSEEK_API_KEY = "sk-f023bdd81cfe45a1a7ed3f69b3c86578"
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+GEMINI_API_KEY = "AIzaSyB..."  # ⚡ ВСТАВЬ СВОЙ КЛЮЧ СЮДА
 
-# Проверка наличия токена
-if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4":
-    print("✅ Токен Telegram настроен")
+# Настройка Gemini
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')  # Бесплатная модель
 
-if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY == "sk-f023bdd81cfe45a1a7ed3f69b3c86578":
-    print("✅ API ключ DeepSeek настроен")
-
-# Инициализация бота с обработкой ошибок
-try:
-    bot = telebot.TeleBot(TELEGRAM_TOKEN)
-    print("✅ Бот инициализирован")
-except Exception as e:
-    print(f"❌ Ошибка инициализации бота: {e}")
-    sys.exit(1)
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 # ======================= БАЗА ДАННЫХ =======================
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fbi_rules.db')
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+cursor = conn.cursor()
 
-try:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    cursor = conn.cursor()
-    print("✅ База данных подключена")
-except Exception as e:
-    print(f"❌ Ошибка подключения к БД: {e}")
-    sys.exit(1)
-
-# Создание таблицы
-try:
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS fbi_rules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category TEXT,
-        title TEXT,
-        content TEXT
-    )
-    ''')
-    conn.commit()
-    print("✅ Таблица создана/проверена")
-except Exception as e:
-    print(f"❌ Ошибка создания таблицы: {e}")
-    sys.exit(1)
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS fbi_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT,
+    title TEXT,
+    content TEXT
+)
+''')
+conn.commit()
 
 # ======================= ДАННЫЕ =======================
-# Вынесены из функции для доступности
 FBI_DATA = [
     # Укроп-патрули
     ("Укроп-патрули", "Общие положения",
@@ -247,19 +221,39 @@ FBI_DATA = [
 
 # ======================= ЗАГРУЗКА ПРАВИЛ =======================
 def load_fbi_rules():
+    cursor.execute("DELETE FROM fbi_rules")
+    for category, title, content in FBI_DATA:
+        cursor.execute("INSERT INTO fbi_rules (category, title, content) VALUES (?, ?, ?)", 
+                      (category, title, content))
+    conn.commit()
+    return len(FBI_DATA)
+
+# ======================= ПОЛУЧИТЬ ВСЕ ПРАВИЛА =======================
+def get_all_rules_text():
+    cursor.execute('SELECT category, title, content FROM fbi_rules')
+    rules = cursor.fetchall()
+    text = "ПРАВИЛА ФБР:\n\n"
+    for category, title, content in rules:
+        text += f"=== {category} - {title} ===\n{content}\n\n"
+    return text
+
+# ======================= ОТВЕТ ЧЕРЕЗ GEMINI =======================
+def get_gemini_answer(question):
     try:
-        cursor.execute("DELETE FROM fbi_rules")
+        rules_text = get_all_rules_text()
         
-        for category, title, content in FBI_DATA:
-            cursor.execute("INSERT INTO fbi_rules (category, title, content) VALUES (?, ?, ?)", 
-                          (category, title, content))
+        prompt = f"""Ты - помощник ФБР. Отвечай на вопросы пользователей, используя ТОЛЬКО информацию из правил ФБР ниже.
+
+{rules_text}
+
+Вопрос: {question}
+
+Ответ (только на основе правил ФБР):"""
         
-        conn.commit()
-        print(f"✅ Загружено {len(FBI_DATA)} правил ФБР")
-        return len(FBI_DATA)
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        print(f"❌ Ошибка загрузки данных: {e}")
-        return 0
+        return f"❌ Ошибка Gemini: {e}"
 
 # ======================= МЕНЮ =======================
 def main_menu():
@@ -275,268 +269,117 @@ def main_menu():
     btn9 = types.KeyboardButton("💻 CJIS")
     btn10 = types.KeyboardButton("⚠️ Наказания")
     btn11 = types.KeyboardButton("🔎 Поиск")
-    btn12 = types.KeyboardButton("🤖 Спросить DeepSeek")
+    btn12 = types.KeyboardButton("🤖 Спросить Gemini")
     markup.add(btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btn10, btn11, btn12)
     return markup
 
 # ======================= ПОИСК =======================
 def search_rules(query):
-    try:
-        query = query.lower().strip()
-        if len(query) < 2:
-            return []
-        
-        cursor.execute('''
-        SELECT id, category, title, content FROM fbi_rules 
-        WHERE title LIKE ? OR content LIKE ?
-        LIMIT 10
-        ''', (f'%{query}%', f'%{query}%'))
-        
-        return cursor.fetchall()
-    except Exception as e:
-        print(f"Ошибка поиска: {e}")
-        return []
-
-# ======================= ВСЕ ПРАВИЛА ДЛЯ DEEPSEEK =======================
-def get_all_rules_text():
-    try:
-        cursor.execute('SELECT category, title, content FROM fbi_rules')
-        rules = cursor.fetchall()
-        
-        text = "ПРАВИЛА ФЕДЕРАЛЬНОГО БЮРО РАССЛЕДОВАНИЙ:\n\n"
-        for category, title, content in rules:
-            text += f"=== {category} - {title} ===\n{content}\n\n"
-        return text
-    except Exception as e:
-        print(f"Ошибка получения правил: {e}")
-        return "Ошибка загрузки правил"
-
-# ======================= ОТВЕТ ЧЕРЕЗ DEEPSEEK =======================
-def get_deepseek_answer(question):
-    try:
-        rules_text = get_all_rules_text()
-        
-        headers = {
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        prompt = f"""Ты - официальный помощник Федерального Бюро Расследований (ФБР). Отвечай на вопросы пользователей, используя ТОЛЬКО информацию из предоставленных правил ФБР ниже. Если информация отсутствует в правилах, вежливо скажи, что не нашел ответа в базе знаний ФБР.
-
-{rules_text}
-
-ВОПРОС ПОЛЬЗОВАТЕЛЯ: {question}
-
-ОТВЕТ (только на основе правил ФБР, будь дружелюбным и полезным):"""
-        
-        data = {
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "Ты помощник ФБР, отвечаешь только на основе предоставленных правил."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.3,
-            "max_tokens": 2000
-        }
-        
-        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data, timeout=30)
-        
-        if response.status_code == 200:
-            result = response.json()
-            return result['choices'][0]['message']['content']
-        else:
-            return f"❌ Ошибка DeepSeek: {response.status_code}"
-            
-    except requests.exceptions.Timeout:
-        return "❌ Таймаут при обращении к DeepSeek"
-    except requests.exceptions.ConnectionError:
-        return "❌ Ошибка подключения к DeepSeek"
-    except Exception as e:
-        return f"❌ Ошибка: {str(e)}"
-
-# ======================= ПРАВИЛА ПО КАТЕГОРИИ =======================
-def get_rules_by_category(category):
-    try:
-        cursor.execute('''
-        SELECT id, title FROM fbi_rules WHERE category = ? ORDER BY title
-        ''', (category,))
-        return cursor.fetchall()
-    except Exception as e:
-        print(f"Ошибка получения категории: {e}")
-        return []
+    query = query.lower().strip()
+    cursor.execute('''
+    SELECT id, category, title, content FROM fbi_rules 
+    WHERE title LIKE ? OR content LIKE ?
+    LIMIT 10
+    ''', (f'%{query}%', f'%{query}%'))
+    return cursor.fetchall()
 
 # ======================= КОМАНДЫ =======================
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    try:
-        bot.send_message(
-            message.chat.id,
-            "👮‍♂️ **ФЕДЕРАЛЬНОЕ БЮРО РАССЛЕДОВАНИЙ**\n\n"
-            "Официальный справочник правил ФБР с искусственным интеллектом DeepSeek.\n\n"
-            "📌 **Выберите раздел в меню** или просто задайте вопрос.\n"
-            "🤖 **Кнопка «Спросить DeepSeek»** — задайте любой вопрос, и ИИ ответит на основе всех правил.",
-            parse_mode="Markdown",
-            reply_markup=main_menu()
-        )
-    except Exception as e:
-        print(f"Ошибка в start: {e}")
+    bot.send_message(
+        message.chat.id,
+        "👮‍♂️ **ФЕДЕРАЛЬНОЕ БЮРО РАССЛЕДОВАНИЙ**\n\n"
+        "Справочник правил ФБР с бесплатной нейросетью Google Gemini.\n\n"
+        "Выберите раздел в меню или нажмите «🤖 Спросить Gemini».",
+        parse_mode="Markdown",
+        reply_markup=main_menu()
+    )
 
 @bot.message_handler(func=lambda message: message.text == "🔎 Поиск")
 def search_prompt(message):
-    try:
-        msg = bot.send_message(message.chat.id, "🔎 Введите поисковый запрос:")
-        bot.register_next_step_handler(msg, search_results)
-    except Exception as e:
-        print(f"Ошибка в поиске: {e}")
+    msg = bot.send_message(message.chat.id, "🔎 Введите поисковый запрос:")
+    bot.register_next_step_handler(msg, search_results)
 
 def search_results(message):
-    try:
-        query = message.text
-        results = search_rules(query)
-        
-        if not results:
-            bot.send_message(message.chat.id, "❌ Ничего не найдено.", reply_markup=main_menu())
-            return
-        
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for rule_id, category, title, content in results[:10]:
-            btn = types.InlineKeyboardButton(f"{category} - {title[:30]}", callback_data=f"rule_{rule_id}")
-            markup.add(btn)
-        
-        bot.send_message(message.chat.id, f"🔎 Найдено по запросу '{query}':", reply_markup=markup)
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
+    query = message.text
+    results = search_rules(query)
+    
+    if not results:
+        bot.send_message(message.chat.id, "❌ Ничего не найдено.", reply_markup=main_menu())
+        return
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for rule_id, category, title, content in results[:10]:
+        btn = types.InlineKeyboardButton(f"{category} - {title[:30]}", callback_data=f"rule_{rule_id}")
+        markup.add(btn)
+    
+    bot.send_message(message.chat.id, f"🔎 Найдено по запросу '{query}':", reply_markup=markup)
 
-@bot.message_handler(func=lambda message: message.text == "🤖 Спросить DeepSeek")
-def deepseek_prompt(message):
-    try:
-        msg = bot.send_message(message.chat.id, "🤖 Задайте ваш вопрос по правилам ФБР:")
-        bot.register_next_step_handler(msg, deepseek_answer)
-    except Exception as e:
-        print(f"Ошибка: {e}")
+@bot.message_handler(func=lambda message: message.text == "🤖 Спросить Gemini")
+def gemini_prompt(message):
+    msg = bot.send_message(message.chat.id, "🤖 Задайте ваш вопрос по правилам ФБР:")
+    bot.register_next_step_handler(msg, gemini_answer)
 
-def deepseek_answer(message):
-    try:
-        bot.send_chat_action(message.chat.id, 'typing')
-        question = message.text
-        answer = get_deepseek_answer(question)
-        bot.send_message(message.chat.id, answer, reply_markup=main_menu())
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
+def gemini_answer(message):
+    bot.send_chat_action(message.chat.id, 'typing')
+    question = message.text
+    answer = get_gemini_answer(question)
+    bot.send_message(message.chat.id, answer, reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания"])
 def category_handler(message):
-    try:
-        category_map = {
-            "📋 Инструкции": "ФБР",
-            "📈 Повышение": "Повышение",
-            "🏢 Отделы": "Отделы",
-            "🚔 Автопарк": "Автопарк",
-            "🎭 Маскировка": "Маскировка",
-            "📟 Коды": "Коды",
-            "🔫 SWAT": "SWAT",
-            "⚖️ Процесс": "Процессуальные действия",
-            "💻 CJIS": "CJIS",
-            "⚠️ Наказания": "Наказания"
-        }
-        
-        category = category_map[message.text]
-        rules = get_rules_by_category(category)
-        
-        if not rules:
-            bot.send_message(message.chat.id, f"❌ В разделе нет правил.", reply_markup=main_menu())
-            return
-        
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for rule_id, title in rules[:10]:
-            btn = types.InlineKeyboardButton(title[:40], callback_data=f"rule_{rule_id}")
-            markup.add(btn)
-        
-        bot.send_message(message.chat.id, f"📋 **{message.text}**", parse_mode="Markdown", reply_markup=markup)
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
+    category_map = {
+        "📋 Инструкции": "ФБР",
+        "📈 Повышение": "Повышение",
+        "🏢 Отделы": "Отделы",
+        "🚔 Автопарк": "Автопарк",
+        "🎭 Маскировка": "Маскировка",
+        "📟 Коды": "Коды",
+        "🔫 SWAT": "SWAT",
+        "⚖️ Процесс": "Процессуальные действия",
+        "💻 CJIS": "CJIS",
+        "⚠️ Наказания": "Наказания"
+    }
+    
+    category = category_map[message.text]
+    cursor.execute('SELECT id, title FROM fbi_rules WHERE category = ? ORDER BY title', (category,))
+    rules = cursor.fetchall()
+    
+    if not rules:
+        bot.send_message(message.chat.id, f"❌ В разделе нет правил.", reply_markup=main_menu())
+        return
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for rule_id, title in rules[:10]:
+        btn = types.InlineKeyboardButton(title[:40], callback_data=f"rule_{rule_id}")
+        markup.add(btn)
+    
+    bot.send_message(message.chat.id, f"📋 **{message.text}**", parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("rule_"))
 def rule_callback(call):
-    try:
-        rule_id = int(call.data.replace("rule_", ""))
-        cursor.execute("SELECT category, title, content FROM fbi_rules WHERE id = ?", (rule_id,))
-        rule = cursor.fetchone()
-        
-        if rule:
-            category, title, content = rule
-            text = f"**{category}**\n**{title}**\n\n{content}"
-            
-            if len(text) > 4000:
-                parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
-                for part in parts:
-                    bot.send_message(call.message.chat.id, part, parse_mode="Markdown")
-            else:
-                bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-        
-        bot.answer_callback_query(call.id)
-    except Exception as e:
-        bot.answer_callback_query(call.id, f"Ошибка: {e}")
-
-@bot.message_handler(func=lambda message: True)
-def handle_question(message):
-    try:
-        if message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания", "🔎 Поиск", "🤖 Спросить DeepSeek"]:
-            return
-        
-        bot.send_chat_action(message.chat.id, 'typing')
-        
-        query = message.text
-        results = search_rules(query)
-        
-        if results:
-            response = f"🔍 **Найдено по запросу:**\n\n"
-            for i, (rule_id, category, title, content) in enumerate(results[:3], 1):
-                preview = content[:200] + "..." if len(content) > 200 else content
-                response += f"{i}. **{category}** - {title}\n{preview}\n\n"
-            
-            markup = types.InlineKeyboardMarkup()
-            for rule_id, category, title, content in results[:3]:
-                btn = types.InlineKeyboardButton(f"📄 {title[:20]}", callback_data=f"rule_{rule_id}")
-                markup.add(btn)
-            
-            bot.send_message(message.chat.id, response, reply_markup=markup)
-        else:
-            markup = types.InlineKeyboardMarkup()
-            btn = types.InlineKeyboardButton("🤖 Спросить DeepSeek", callback_data="ask_deepseek")
-            markup.add(btn)
-            bot.send_message(message.chat.id, "❌ Ничего не найдено в базе. Хотите спросить DeepSeek?", reply_markup=markup)
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Ошибка: {e}", reply_markup=main_menu())
-
-@bot.callback_query_handler(func=lambda call: call.data == "ask_deepseek")
-def ask_deepseek_callback(call):
-    try:
-        msg = bot.send_message(call.message.chat.id, "🤖 Задайте ваш вопрос:")
-        bot.register_next_step_handler(msg, deepseek_answer)
-        bot.answer_callback_query(call.id)
-    except Exception as e:
-        bot.answer_callback_query(call.id, f"Ошибка: {e}")
+    rule_id = int(call.data.replace("rule_", ""))
+    cursor.execute("SELECT category, title, content FROM fbi_rules WHERE id = ?", (rule_id,))
+    rule = cursor.fetchone()
+    
+    if rule:
+        category, title, content = rule
+        text = f"**{category}**\n**{title}**\n\n{content}"
+        bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+    
+    bot.answer_callback_query(call.id)
 
 # ======================= ЗАПУСК =======================
 if __name__ == "__main__":
-    print("="*60)
-    print("ЗАГРУЗКА ПРАВИЛ ФБР И НАСТРОЙКА DEEPSEEK...")
-    print("="*60)
+    print("="*50)
+    print("ЗАГРУЗКА ПРАВИЛ ФБР...")
+    print("="*50)
     
     rules_count = load_fbi_rules()
     
-    print("\n" + "="*60)
-    print("✅ БОТ ФБР С DEEPSEEK ГОТОВ")
-    print("="*60)
-    print(f"📊 База данных: {rules_count} правил")
-    print("🚀 Бот запущен, используй кнопки или задавай вопросы!")
-    print("⚠️ Для остановки: Ctrl+C")
+    print(f"✅ Загружено {rules_count} правил")
+    print("="*50)
+    print("🚀 Бот с Gemini запущен")
+    print("⚠️ Gemini работает бесплатно")
     
-    # Запуск с обработкой прерывания
-    try:
-        bot.infinity_polling(timeout=60, long_polling_timeout=60)
-    except KeyboardInterrupt:
-        print("\n👋 Бот остановлен")
-    except Exception as e:
-        print(f"\n❌ Ошибка: {e}")
+    bot.infinity_polling()
