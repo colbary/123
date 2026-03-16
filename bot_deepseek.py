@@ -1,11 +1,16 @@
 import telebot
+import requests
 import sqlite3
 import re
 import os
+import json
 from telebot import types
 
 # ======================= КОНФИГ =======================
 TELEGRAM_TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
+DEEPSEEK_API_KEY = "sk-f023bdd81cfe45a1a7ed3f69b3c86578"
+DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 # ======================= БАЗА ДАННЫХ =======================
@@ -23,7 +28,7 @@ CREATE TABLE IF NOT EXISTS fbi_rules (
 ''')
 conn.commit()
 
-# ======================= ЗАГРУЗКА ТОЛЬКО ФБР =======================
+# ======================= ЗАГРУЗКА ВСЕХ ПРАВИЛ =======================
 def load_fbi_rules():
     cursor.execute("DELETE FROM fbi_rules")
     
@@ -236,7 +241,8 @@ def main_menu():
     btn9 = types.KeyboardButton("💻 CJIS")
     btn10 = types.KeyboardButton("⚠️ Наказания")
     btn11 = types.KeyboardButton("🔎 Поиск")
-    markup.add(btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btn10, btn11)
+    btn12 = types.KeyboardButton("🤖 Спросить DeepSeek")
+    markup.add(btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btn10, btn11, btn12)
     return markup
 
 # ======================= ПОИСК =======================
@@ -253,6 +259,55 @@ def search_rules(query):
     
     return cursor.fetchall()
 
+# ======================= ПОЛУЧИТЬ ВСЕ ПРАВИЛА ДЛЯ DEEPSEEK =======================
+def get_all_rules_text():
+    cursor.execute('SELECT category, title, content FROM fbi_rules')
+    rules = cursor.fetchall()
+    
+    text = "ПРАВИЛА ФЕДЕРАЛЬНОГО БЮРО РАССЛЕДОВАНИЙ:\n\n"
+    for category, title, content in rules:
+        text += f"=== {category} - {title} ===\n{content}\n\n"
+    return text
+
+# ======================= ОТВЕТ ЧЕРЕЗ DEEPSEEK =======================
+def get_deepseek_answer(question):
+    try:
+        rules_text = get_all_rules_text()
+        
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        prompt = f"""Ты - официальный помощник Федерального Бюро Расследований (ФБР). Отвечай на вопросы пользователей, используя ТОЛЬКО информацию из предоставленных правил ФБР ниже. Если информация отсутствует в правилах, вежливо скажи, что не нашел ответа в базе знаний ФБР.
+
+{rules_text}
+
+ВОПРОС ПОЛЬЗОВАТЕЛЯ: {question}
+
+ОТВЕТ (только на основе правил ФБР, будь дружелюбным и полезным):"""
+        
+        data = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "Ты помощник ФБР, отвечаешь только на основе предоставленных правил."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2000
+        }
+        
+        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"❌ Ошибка DeepSeek: {response.status_code}"
+            
+    except Exception as e:
+        return f"❌ Ошибка: {str(e)}"
+
 # ======================= ПРАВИЛА ПО КАТЕГОРИИ =======================
 def get_rules_by_category(category):
     cursor.execute('''
@@ -266,8 +321,9 @@ def start_command(message):
     bot.send_message(
         message.chat.id,
         "👮‍♂️ **ФЕДЕРАЛЬНОЕ БЮРО РАССЛЕДОВАНИЙ**\n\n"
-        "Официальный справочник правил ФБР.\n\n"
-        "Выберите раздел в меню или просто задайте вопрос.",
+        "Официальный справочник правил ФБР с искусственным интеллектом DeepSeek.\n\n"
+        "📌 **Выберите раздел в меню** или просто задайте вопрос.\n"
+        "🤖 **Кнопка «Спросить DeepSeek»** — задайте любой вопрос, и ИИ ответит на основе всех правил.",
         parse_mode="Markdown",
         reply_markup=main_menu()
     )
@@ -291,6 +347,17 @@ def search_results(message):
         markup.add(btn)
     
     bot.send_message(message.chat.id, f"🔎 Найдено по запросу '{query}':", reply_markup=markup)
+
+@bot.message_handler(func=lambda message: message.text == "🤖 Спросить DeepSeek")
+def deepseek_prompt(message):
+    msg = bot.send_message(message.chat.id, "🤖 Задайте ваш вопрос по правилам ФБР:")
+    bot.register_next_step_handler(msg, deepseek_answer)
+
+def deepseek_answer(message):
+    bot.send_chat_action(message.chat.id, 'typing')
+    question = message.text
+    answer = get_deepseek_answer(question)
+    bot.send_message(message.chat.id, answer, reply_markup=main_menu())
 
 @bot.message_handler(func=lambda message: message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания"])
 def category_handler(message):
@@ -342,7 +409,7 @@ def rule_callback(call):
 
 @bot.message_handler(func=lambda message: True)
 def handle_question(message):
-    if message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания", "🔎 Поиск"]:
+    if message.text in ["📋 Инструкции", "📈 Повышение", "🏢 Отделы", "🚔 Автопарк", "🎭 Маскировка", "📟 Коды", "🔫 SWAT", "⚖️ Процесс", "💻 CJIS", "⚠️ Наказания", "🔎 Поиск", "🤖 Спросить DeepSeek"]:
         return
     
     bot.send_chat_action(message.chat.id, 'typing')
@@ -363,18 +430,30 @@ def handle_question(message):
         
         bot.send_message(message.chat.id, response, reply_markup=markup)
     else:
-        bot.send_message(message.chat.id, "❌ Ничего не найдено.", reply_markup=main_menu())
+        # Если ничего не найдено, предлагаем спросить DeepSeek
+        markup = types.InlineKeyboardMarkup()
+        btn = types.InlineKeyboardButton("🤖 Спросить DeepSeek", callback_data="ask_deepseek")
+        markup.add(btn)
+        bot.send_message(message.chat.id, "❌ Ничего не найдено в базе. Хотите спросить DeepSeek?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "ask_deepseek")
+def ask_deepseek_callback(call):
+    msg = bot.send_message(call.message.chat.id, "🤖 Задайте ваш вопрос:")
+    bot.register_next_step_handler(msg, deepseek_answer)
+    bot.answer_callback_query(call.id)
 
 # ======================= ЗАПУСК =======================
 if __name__ == "__main__":
-    print("="*50)
-    print("ЗАГРУЗКА ПРАВИЛ ФБР...")
-    print("="*50)
+    print("="*60)
+    print("ЗАГРУЗКА ПРАВИЛ ФБР И НАСТРОЙКА DEEPSEEK...")
+    print("="*60)
     
     load_fbi_rules()
     
-    print("\n" + "="*50)
-    print("✅ БОТ ФБР ГОТОВ")
-    print("="*50)
+    print("\n" + "="*60)
+    print("✅ БОТ ФБР С DEEPSEEK ГОТОВ")
+    print("="*60)
+    print(f"📊 База данных: {len(fbi_data)} правил")
+    print("🚀 Бот запущен, используй кнопки или задавай вопросы!")
     
     bot.infinity_polling()
