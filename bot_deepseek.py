@@ -3,7 +3,6 @@
 # AI Bot - Uncensored Edition
 
 import telebot
-import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import requests
 import json
