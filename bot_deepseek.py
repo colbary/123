@@ -1,5 +1,4 @@
 import telebot
-import re
 
 TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
 bot = telebot.TeleBot(TOKEN)
@@ -7,7 +6,7 @@ bot = telebot.TeleBot(TOKEN)
 # ========== ВСЕ ПРАВИЛА ==========
 
 RULES = {
-    "сми": """📢 СРЕДСТВА МАССОВОЙ ИНФОРМАЦИИ (СМИ)
+    "smi": """📢 СРЕДСТВА МАССОВОЙ ИНФОРМАЦИИ (СМИ)
 
 СМИ — совокупность органов публичной передачи информации. К современным СМИ относятся: печать, радио, телевидение и интернет.
 
@@ -16,7 +15,7 @@ RULES = {
 • Проведение рекламных эфиров
 • Информирование о деятельности госструктур""",
 
-    "гцл": """🎓 ГОСУДАРСТВЕННЫЙ ЦЕНТР ЛИЦЕНЗИРОВАНИЯ (ГЦЛ)
+    "gcl": """🎓 ГОСУДАРСТВЕННЫЙ ЦЕНТР ЛИЦЕНЗИРОВАНИЯ (ГЦЛ)
 
 ГЦЛ (Автошкола) — выдача лицензий на вождение.
 
@@ -28,7 +27,7 @@ RULES = {
 • Проверка лицензий у сотрудников любых госструктур
 • НЕ проводит техосмотр""",
 
-    "правительство": """🏛️ ПРАВИТЕЛЬСТВО (GOVERNMENT)
+    "gov": """🏛️ ПРАВИТЕЛЬСТВО (GOVERNMENT)
 
 Высший коллегиальный исполнительный орган государственного управления.
 
@@ -46,11 +45,11 @@ RULES = {
 4. Предупреждение о занятии госволны
 
 ❌ ЗАПРЕЩЕНО:
-• Метагейминг: /d Не могу доставить, мне в школу
-• OOC-чат: /d ((Ребят, я выхожу))
-• Смешивание IC/OOC: /d Боец ((ид 610))
-• Откаты: пишите "Упала рация"
-• Оффтоп: поздравления и т.д.
+• Метагейминг
+• OOC-чат
+• Смешивание IC/OOC
+• Откаты (пишите "Упала рация")
+• Оффтоп (поздравления)
 
 ИДЕНТИФИКАЦИЯ:
 • Армия/полиция — жетон
@@ -71,7 +70,7 @@ RULES = {
 ФОРМЫ ОБРАЩЕНИЙ:
 [ТСР] [ЛСПД] [СФПД] [ЛВПД] [РКШД] [ФБР] [Пра-во] [ЛСа] [СФа] [СтК] [ЛСМЦ] [ДЖМЦ] [СФМЦ] [ЛВМЦ] [ГЦЛ] [СМИ ЛС] [СМИ СФ] [СМИ ЛВ]""",
 
-    "палатки": """📰 ПРОДАЖА ГАЗЕТ И ПАЛАТКИ
+    "palatki": """📰 ПРОДАЖА ГАЗЕТ И ПАЛАТКИ
 
 ПРАВИЛА:
 1. Палатку даёт руководство
@@ -131,7 +130,7 @@ RULES = {
 • Причина с матом
 • Просто так""",
 
-    "лекции": """📚 ПРОВЕДЕНИЕ ЛЕКЦИЙ
+    "lekcii": """📚 ПРОВЕДЕНИЕ ЛЕКЦИЙ
 
 КРИТЕРИИ:
 • Разъяснять основы работы
@@ -141,7 +140,7 @@ RULES = {
 • Заранее написана и заучена (биндер)
 • Нормальный темп (интервал 5 сек)""",
 
-    "описание": """👤 ОПИСАНИЕ ПЕРСОНАЖА
+    "opisanie": """👤 ОПИСАНИЕ ПЕРСОНАЖА
 
 ПРАВИЛА:
 1. Только РП-описания
@@ -152,7 +151,7 @@ RULES = {
 ПРИМЕР:
 «Парень среднего роста с ярко зелёными глазами и обветренными губами. На вид 23-24 года. Сбиты костяшки на руках, из-под рукава татуировка дракона.»""",
 
-    "реклама": """💰 ПРАВИЛА РЕКЛАМЫ
+    "reklama": """💰 ПРАВИЛА РЕКЛАМЫ
 
 ПОРЯДОК:
 • Обговорить сроки и условия
@@ -165,7 +164,7 @@ RULES = {
 ШТРАФ:
 От 2 000 000 $ до 5 000 000 $ за невыполнение""",
 
-    "обязанности": """⚠️ ОБЯЗАННОСТИ И НАКАЗАНИЯ
+    "obyazannosti": """⚠️ ОБЯЗАННОСТИ И НАКАЗАНИЯ
 
 ОСНОВНЫЕ ПРАВИЛА:
 • Лидер отвечает за старший состав
@@ -188,7 +187,7 @@ RULES = {
 • Нарушение устава: -10..-25
 • Массовое нарушение: -8..-25""",
 
-    "транспорт": """🚗 ТРАНСПОРТ
+    "transport": """🚗 ТРАНСПОРТ
 
 НАЗЕМНЫЙ:
 • Toyota RAV4
@@ -197,7 +196,7 @@ RULES = {
 ВОЗДУШНЫЙ:
 • Вертолет News Maverick""",
 
-    "адвокаты": """⚖️ АДВОКАТСКАЯ ДЕЯТЕЛЬНОСТЬ
+    "advokaty": """⚖️ АДВОКАТСКАЯ ДЕЯТЕЛЬНОСТЬ
 
 КАК СТАТЬ АДВОКАТОМ:
 1. Пройти тест
@@ -209,7 +208,7 @@ RULES = {
 • Адвокат предъявляет паспорт/визитку
 • Сотрудник МЮ обыскивает на запрещёнку
 • Пропуск выдаёт 3+ ранг
-• Доклад по рации: /r [Тэг] Выписал пропуск ID 1-2-3
+• Доклад по рации: /r [Тэг] Выписал пропуск ID
 • Адвокат занимает место дежурного
 
 ЕСЛИ НЕТ СОТРУДНИКА 5 МИНУТ:
@@ -231,87 +230,62 @@ RULES = {
 ТСР: вся территория, кроме холла и переговорной"""
 }
 
-# ========== ПОИСК ==========
-def search_rules(query):
-    query = query.lower()
-    results = []
-    for keyword, text in RULES.items():
-        if query in text.lower() or query in keyword.lower():
-            results.append((keyword, text))
-    return results
-
 # ========== КОМАНДЫ ==========
-@bot.message_handler(commands=['start', 'faq'])
-def send_welcome(message):
+@bot.message_handler(commands=['start'])
+def send_welcome(m):
     text = """📚 **Справочник Arizona RP | Mesa**
 
 **Доступные команды:**
 
-/smi — Средства массовой информации
-/gcl — Государственный Центр Лицензирования
+/smi — СМИ
+/gcl — ГЦЛ
 /gov — Правительство
-/d — Канал департамента
+/d — Канал /d
 /palatki — Продажа газет и палатки
 /expel — Процедура выдворения
-/lekcii — Проведение лекций
+/lekcii — Лекции
 /opisanie — Описание персонажа
-/reklama — Правила рекламы
+/reklama — Реклама
 /obyazannosti — Обязанности и наказания
 /transport — Транспорт
-/advokaty — Адвокатская деятельность
+/advokaty — Адвокаты
 
-**Поиск:** отправьте любое слово (например: «жетон», «палатка», «штраф») и бот найдёт все правила с этим словом.
+**Поиск:** просто напиши слово (например: жетон, палатка, штраф)"""
+    bot.send_message(m.chat.id, text, parse_mode="Markdown")
 
-**Пример:** `жетон` — покажет все упоминания жетонов в правилах"""
-    bot.send_message(message.chat.id, text, parse_mode="Markdown")
-
-@bot.message_handler(commands=['smi'])
-def cmd_smi(m): bot.send_message(m.chat.id, RULES["сми"], parse_mode="Markdown")
-@bot.message_handler(commands=['gcl'])
-def cmd_gcl(m): bot.send_message(m.chat.id, RULES["гцл"], parse_mode="Markdown")
-@bot.message_handler(commands=['gov'])
-def cmd_gov(m): bot.send_message(m.chat.id, RULES["правительство"], parse_mode="Markdown")
-@bot.message_handler(commands=['d'])
-def cmd_d(m): bot.send_message(m.chat.id, RULES["d"], parse_mode="Markdown")
-@bot.message_handler(commands=['palatki'])
-def cmd_palatki(m): bot.send_message(m.chat.id, RULES["палатки"], parse_mode="Markdown")
-@bot.message_handler(commands=['expel'])
-def cmd_expel(m): bot.send_message(m.chat.id, RULES["expel"], parse_mode="Markdown")
-@bot.message_handler(commands=['lekcii'])
-def cmd_lekcii(m): bot.send_message(m.chat.id, RULES["лекции"], parse_mode="Markdown")
-@bot.message_handler(commands=['opisanie'])
-def cmd_opisanie(m): bot.send_message(m.chat.id, RULES["описание"], parse_mode="Markdown")
-@bot.message_handler(commands=['reklama'])
-def cmd_reklama(m): bot.send_message(m.chat.id, RULES["реклама"], parse_mode="Markdown")
-@bot.message_handler(commands=['obyazannosti'])
-def cmd_obyazannosti(m): bot.send_message(m.chat.id, RULES["обязанности"], parse_mode="Markdown")
-@bot.message_handler(commands=['transport'])
-def cmd_transport(m): bot.send_message(m.chat.id, RULES["транспорт"], parse_mode="Markdown")
-@bot.message_handler(commands=['advokaty'])
-def cmd_advokaty(m): bot.send_message(m.chat.id, RULES["адвокаты"], parse_mode="Markdown")
+@bot.message_handler(commands=['smi']) def f(m): bot.send_message(m.chat.id, RULES["smi"])
+@bot.message_handler(commands=['gcl']) def f(m): bot.send_message(m.chat.id, RULES["gcl"])
+@bot.message_handler(commands=['gov']) def f(m): bot.send_message(m.chat.id, RULES["gov"])
+@bot.message_handler(commands=['d']) def f(m): bot.send_message(m.chat.id, RULES["d"])
+@bot.message_handler(commands=['palatki']) def f(m): bot.send_message(m.chat.id, RULES["palatki"])
+@bot.message_handler(commands=['expel']) def f(m): bot.send_message(m.chat.id, RULES["expel"])
+@bot.message_handler(commands=['lekcii']) def f(m): bot.send_message(m.chat.id, RULES["lekcii"])
+@bot.message_handler(commands=['opisanie']) def f(m): bot.send_message(m.chat.id, RULES["opisanie"])
+@bot.message_handler(commands=['reklama']) def f(m): bot.send_message(m.chat.id, RULES["reklama"])
+@bot.message_handler(commands=['obyazannosti']) def f(m): bot.send_message(m.chat.id, RULES["obyazannosti"])
+@bot.message_handler(commands=['transport']) def f(m): bot.send_message(m.chat.id, RULES["transport"])
+@bot.message_handler(commands=['advokaty']) def f(m): bot.send_message(m.chat.id, RULES["advokaty"])
 
 @bot.message_handler(func=lambda m: True)
-def search_handler(message):
-    results = search_rules(message.text)
-    if not results:
-        bot.reply_to(message, "❌ Ничего не найдено. Используй /start для списка команд.")
-        return
-    
-    if len(results) == 1:
-        bot.send_message(message.chat.id, results[0][1], parse_mode="Markdown")
+def search(m):
+    query = m.text.lower()
+    found = []
+    for key, text in RULES.items():
+        if query in text.lower():
+            found.append((key, text))
+    if not found:
+        bot.reply_to(m, "❌ Ничего не найдено. Используй /start")
+    elif len(found) == 1:
+        bot.send_message(m.chat.id, found[0][1])
     else:
-        text = f"🔍 Найдено {len(results)} результатов по запросу «{message.text}»:\n\n"
-        for keyword, _ in results[:5]:
-            name = {
-                "сми": "📢 СМИ", "гцл": "🎓 ГЦЛ", "правительство": "🏛️ Правительство",
-                "d": "📻 Канал /d", "палатки": "📰 Палатки", "expel": "🔨 /expel",
-                "лекции": "📚 Лекции", "описание": "👤 Описание", "реклама": "💰 Реклама",
-                "обязанности": "⚠️ Обязанности", "транспорт": "🚗 Транспорт", "адвокаты": "⚖️ Адвокаты"
-            }.get(keyword, keyword)
-            text += f"• {name} — используй команду /{keyword}\n"
-        text += "\nИли отправь точный запрос для получения полного текста."
-        bot.send_message(message.chat.id, text)
+        names = {"smi":"СМИ", "gcl":"ГЦЛ", "gov":"Правительство", "d":"/d", "palatki":"Палатки",
+                 "expel":"/expel", "lekcii":"Лекции", "opisanie":"Описание", "reklama":"Реклама",
+                 "obyazannosti":"Обязанности", "transport":"Транспорт", "advokaty":"Адвокаты"}
+        reply = f"🔍 Найдено {len(found)} результатов:\n\n"
+        for k, _ in found[:5]:
+            reply += f"• {names.get(k, k)} — используй /{k}\n"
+        bot.send_message(m.chat.id, reply)
 
 if __name__ == "__main__":
-    print("✅ Бот Arizona RP запущен! Без кнопок, только команды и поиск.")
+    print("✅ Бот запущен. Кнопок нет, только команды и поиск.")
     bot.infinity_polling()
