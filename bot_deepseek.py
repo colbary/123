@@ -1,11 +1,33 @@
-cat > bot.py << 'EOF'
 import telebot
 
 TOKEN = "8733856481:AAHx4XmepOb4htYPIxnD7ShxG3EooxuiyU4"
 bot = telebot.TeleBot(TOKEN)
 
-RULES = {
-    "smi": """📢 СРЕДСТВА МАССОВОЙ ИНФОРМАЦИИ (СМИ)
+@bot.message_handler(commands=['start'])
+def start(message):
+    text = """📚 СПРАВОЧНИК ARIZONA RP | MESA
+
+Доступные команды:
+
+/smi — Средства массовой информации
+/gcl — Государственный Центр Лицензирования
+/gov — Правительство
+/d — Канал департамента (/d)
+/palatki — Продажа газет и установка палаток
+/expel — Процедура выдворения (/expel)
+/lekcii — Проведение лекций
+/opisanie — Описание персонажа
+/reklama — Правила рекламы
+/obyazannosti — Обязанности и наказания
+/transport — Транспорт
+/advokaty — Адвокатская деятельность
+
+Поиск: просто напишите любое слово (например: жетон, палатка, штраф)"""
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=['smi'])
+def smi(message):
+    text = """📢 СРЕДСТВА МАССОВОЙ ИНФОРМАЦИИ (СМИ)
 
 СМИ — совокупность органов публичной передачи информации с помощью технических средств. К современным средствам массовой информации относятся: печать, радио, телевидение и сеть Интернет.
 
@@ -13,9 +35,12 @@ RULES = {
 • Выпуск газет и новостных материалов
 • Проведение рекламных эфиров
 • Информирование о деятельности государственных структур
-• Сбор и распространение информации""",
+• Сбор и распространение информации"""
+    bot.send_message(message.chat.id, text)
 
-    "gcl": """🎓 ГОСУДАРСТВЕННЫЙ ЦЕНТР ЛИЦЕНЗИРОВАНИЯ (ГЦЛ)
+@bot.message_handler(commands=['gcl'])
+def gcl(message):
+    text = """🎓 ГОСУДАРСТВЕННЫЙ ЦЕНТР ЛИЦЕНЗИРОВАНИЯ (ГЦЛ)
 
 Государственный Центр Лицензирования или Автошкола — это государственное учреждение, в котором происходит обучение граждан вождению транспортными средствами и выдача лицензий на вождение транспортных средств.
 
@@ -25,9 +50,12 @@ RULES = {
 
 Права и обязанности:
 • ГЦЛ имеет право проверять лицензии у сотрудников любых государственных структур
-• ГЦЛ НЕ имеет права проводить технический осмотр автомобилей""",
+• ГЦЛ НЕ имеет права проводить технический осмотр автомобилей"""
+    bot.send_message(message.chat.id, text)
 
-    "gov": """🏛️ ПРАВИТЕЛЬСТВО (GOVERNMENT)
+@bot.message_handler(commands=['gov'])
+def gov(message):
+    text = """🏛️ ПРАВИТЕЛЬСТВО (GOVERNMENT)
 
 Правительство — высший коллегиальный исполнительный орган государственного управления, формируемый из руководителей органов государственного управления штата и других государственных служащих.
 
@@ -36,9 +64,12 @@ RULES = {
 Функции:
 • Управление штатом
 • Координация работы государственных структур
-• Принятие нормативных актов""",
+• Принятие нормативных актов"""
+    bot.send_message(message.chat.id, text)
 
-    "d": """📻 КАНАЛ ДЕПАРТАМЕНТА (/d)
+@bot.message_handler(commands=['d'])
+def d_channel(message):
+    text = """📻 КАНАЛ ДЕПАРТАМЕНТА (/d)
 
 Канал департамента (/d) — внутренний канал связи государственных организаций.
 
@@ -112,9 +143,12 @@ RULES = {
 [ГЦЛ] — Driving school
 [СМИ ЛС] — Radiocentre LS
 [СМИ СФ] — Radiocentre SF
-[СМИ ЛВ] — Radiocentre LV""",
+[СМИ ЛВ] — Radiocentre LV"""
+    bot.send_message(message.chat.id, text)
 
-    "palatki": """📰 ПРОДАЖА ГАЗЕТ И УСТАНОВКА ПАЛАТОК
+@bot.message_handler(commands=['palatki'])
+def palatki(message):
+    text = """📰 ПРОДАЖА ГАЗЕТ И УСТАНОВКА ПАЛАТОК
 
 ПРАВИЛА ДЛЯ СОТРУДНИКОВ СМИ:
 
@@ -153,9 +187,12 @@ RULES = {
 • Размещать киоски в интерьерах
 • Размещать палатки на крышах домов, машин и других местах, которые будут нарушать ролевой режим
 • Размещать палатки на дорогах
-• Стоять на палатке""",
+• Стоять на палатке"""
+    bot.send_message(message.chat.id, text)
 
-    "expel": """🔨 ПРОЦЕДУРА /EXPEL (ВЫДВОРЕНИЕ ИЗ ОФИСА)
+@bot.message_handler(commands=['expel'])
+def expel(message):
+    text = """🔨 ПРОЦЕДУРА /EXPEL (ВЫДВОРЕНИЕ ИЗ ОФИСА)
 
 ПОШАГОВАЯ ИНСТРУКЦИЯ:
 
@@ -173,7 +210,7 @@ RULES = {
 ЗА ЧТО МОЖНО ВЫГНАТЬ:
 
 1. Неадекватное или неуважительное поведение в сторону сотрудников и граждан
-   → Причина: НПСК или НПГЦЛ или НПСМИ или НПП (Нарушение порядка Страховой Компании / Государственного Центра Лицензирования / Центрального Банка / Нарушение Правил Правительства)
+   → Причина: НПСК или НПГЦЛ или НПСМИ или НПП
 
 2. Срыв или помеха собеседований, лекций, учебных деятельностей
    → Причина: НПСК или НПГЦЛ или НПСМИ или НПП
@@ -203,9 +240,12 @@ RULES = {
 3. С причиной, содержащей мат
 4. Просто так выгонять или глушить дубинкой граждан
 
-Примечание: За серьезные нарушения порядка в офисе Страховой Компании руководство вправе удалить с рассмотрения заявку нарушителя.""",
+Примечание: За серьезные нарушения порядка в офисе Страховой Компании руководство вправе удалить с рассмотрения заявку нарушителя."""
+    bot.send_message(message.chat.id, text)
 
-    "lekcii": """📚 КРИТЕРИИ СОСТАВЛЕНИЯ И ПРОЧТЕНИЯ ЛЕКЦИЙ
+@bot.message_handler(commands=['lekcii'])
+def lekcii(message):
+    text = """📚 КРИТЕРИИ СОСТАВЛЕНИЯ И ПРОЧТЕНИЯ ЛЕКЦИЙ
 
 Требования к лекции:
 
@@ -215,9 +255,12 @@ RULES = {
 • Лекция должна быть разумных объемов (в зависимости от темы, не нужно копировать устав целиком и полностью)
 • Лекция должна быть написана заранее и заучена (биндер)
 • Лекция должна читаться в нормальном темпе и разборчивым голосом
-• Интервал между сообщениями в биндере — 5 секунд""",
+• Интервал между сообщениями в биндере — 5 секунд"""
+    bot.send_message(message.chat.id, text)
 
-    "opisanie": """👤 СИСТЕМА ОПИСАНИЯ ПЕРСОНАЖА
+@bot.message_handler(commands=['opisanie'])
+def opisanie(message):
+    text = """👤 СИСТЕМА ОПИСАНИЯ ПЕРСОНАЖА
 
 Система описания создана для того, чтобы игроки могли заранее описать внешние черты своего персонажа, которые не позволяет отобразить игровой мод, дабы не описывать их каждый раз в /do.
 
@@ -230,9 +273,12 @@ RULES = {
 
 ПРИМЕР РОЛЕВОГО ОПИСАНИЯ:
 
-"Парень среднего роста с ярко зеленными глазами и обветренными губами. На вид 23-24 года. Сбиты костяшки на руках, а также из под рукава виднеется татуировка дракона."""",
+"Парень среднего роста с ярко зеленными глазами и обветренными губами. На вид 23-24 года. Сбиты костяшки на руках, а также из под рукава виднеется татуировка дракона.""""
+    bot.send_message(message.chat.id, text)
 
-    "reklama": """💰 ПРАВИЛА РЕКЛАМЫ
+@bot.message_handler(commands=['reklama'])
+def reklama(message):
+    text = """💰 ПРАВИЛА РЕКЛАМЫ
 
 При подписании контракта о рекламе лидер или заместитель СМИ должен скринить или записать полный разговор!
 
@@ -247,9 +293,12 @@ RULES = {
 От 500 000 долларов до 3 000 000 долларов
 
 ШТРАФЫ:
-Если рекламодатель не выполняет все условия, которые были обговорены, на него накладывается штраф в размере от 2 000 000 до 5 000 000 долларов""",
+Если рекламодатель не выполняет все условия, которые были обговорены, на него накладывается штраф в размере от 2 000 000 до 5 000 000 долларов"""
+    bot.send_message(message.chat.id, text)
 
-    "obyazannosti": """⚠️ ПЕРЕЧЕНЬ ОБЯЗАННОСТЕЙ И НАКАЗАНИЙ
+@bot.message_handler(commands=['obyazannosti'])
+def obyazannosti(message):
+    text = """⚠️ ПЕРЕЧЕНЬ ОБЯЗАННОСТЕЙ И НАКАЗАНИЙ
 
 1. Лидер несет полную ответственность за свой старший состав
 2. В течение рабочего дня лидеру или заместителю запрещено стоять AFK без ESC более 600 секунд (10 минут) → kick и устный выговор лидеру
@@ -278,18 +327,24 @@ RULES = {
 25. Прогул рабочего дня лидером или заместителем фракции → Минус 25 баллов
 26. Нарушение устава лидером или заместителем → Минус от 10 до 25 баллов
 27. Массовое нарушение устава со стороны сотрудников фракции → Минус от 8 до 25 баллов
-28. Игнорирование лидером или заместителем нарушений устава сотрудником → Минус от 8 до 25 баллов""",
+28. Игнорирование лидером или заместителем нарушений устава сотрудником → Минус от 8 до 25 баллов"""
+    bot.send_message(message.chat.id, text)
 
-    "transport": """🚗 ТРАНСПОРТ
+@bot.message_handler(commands=['transport'])
+def transport(message):
+    text = """🚗 ТРАНСПОРТ
 
 НАЗЕМНЫЙ ТРАНСПОРТ:
 • Автомобиль Toyota RAV4
 • Автомобиль NewsVan
 
 ВОЗДУШНЫЙ ТРАНСПОРТ:
-• Вертолет News Maverick""",
+• Вертолет News Maverick"""
+    bot.send_message(message.chat.id, text)
 
-    "advokaty": """⚖️ АДВОКАТСКАЯ ДЕЯТЕЛЬНОСТЬ
+@bot.message_handler(commands=['advokaty'])
+def advokaty(message):
+    text = """⚖️ АДВОКАТСКАЯ ДЕЯТЕЛЬНОСТЬ
 
 Информация:
 
@@ -321,77 +376,57 @@ RULES = {
 Закрытой территорией Тюрьмы строгого режима является вся территория, кроме холла и переговорной.
 
 Если сотрудник Министерства Юстиции заметил вас в указанных местах, то он должен спросить пропуск, разрешение или иной документ, который даёт право находиться на территории. Если ничего не имеется — сотрудник вправе расценивать это как проникновение на территорию Министерства Юстиции или Тюрьмы строгого режима."""
-}
-
-@bot.message_handler(commands=['start'])
-def start(m):
-    text = """📚 СПРАВОЧНИК ARIZONA RP | MESA
-
-Доступные команды:
-
-/smi — Средства массовой информации
-/gcl — Государственный Центр Лицензирования
-/gov — Правительство
-/d — Канал департамента (/d)
-/palatki — Продажа газет и установка палаток
-/expel — Процедура выдворения (/expel)
-/lekcii — Проведение лекций
-/opisanie — Описание персонажа
-/reklama — Правила рекламы
-/obyazannosti — Обязанности и наказания
-/transport — Транспорт
-/advokaty — Адвокатская деятельность
-
-Поиск: просто напишите любое слово (например: жетон, палатка, штраф, адвокат, лекция) и бот найдёт все правила, где это слово встречается."""
-    bot.send_message(m.chat.id, text)
-
-@bot.message_handler(commands=['smi'])
-def smi(m): bot.send_message(m.chat.id, RULES["smi"])
-
-@bot.message_handler(commands=['gcl'])
-def gcl(m): bot.send_message(m.chat.id, RULES["gcl"])
-
-@bot.message_handler(commands=['gov'])
-def gov(m): bot.send_message(m.chat.id, RULES["gov"])
-
-@bot.message_handler(commands=['d'])
-def d(m): bot.send_message(m.chat.id, RULES["d"])
-
-@bot.message_handler(commands=['palatki'])
-def palatki(m): bot.send_message(m.chat.id, RULES["palatki"])
-
-@bot.message_handler(commands=['expel'])
-def expel(m): bot.send_message(m.chat.id, RULES["expel"])
-
-@bot.message_handler(commands=['lekcii'])
-def lekcii(m): bot.send_message(m.chat.id, RULES["lekcii"])
-
-@bot.message_handler(commands=['opisanie'])
-def opisanie(m): bot.send_message(m.chat.id, RULES["opisanie"])
-
-@bot.message_handler(commands=['reklama'])
-def reklama(m): bot.send_message(m.chat.id, RULES["reklama"])
-
-@bot.message_handler(commands=['obyazannosti'])
-def obyazannosti(m): bot.send_message(m.chat.id, RULES["obyazannosti"])
-
-@bot.message_handler(commands=['transport'])
-def transport(m): bot.send_message(m.chat.id, RULES["transport"])
-
-@bot.message_handler(commands=['advokaty'])
-def advokaty(m): bot.send_message(m.chat.id, RULES["advokaty"])
+    bot.send_message(message.chat.id, text)
 
 @bot.message_handler(func=lambda m: True)
-def search(m):
-    q = m.text.lower()
+def search(message):
+    query = message.text.lower()
+    all_texts = {
+        "smi": smi_text,
+        "gcl": gcl_text,
+        "gov": gov_text,
+        "d": d_text,
+        "palatki": palatki_text,
+        "expel": expel_text,
+        "lekcii": lekcii_text,
+        "opisanie": opisanie_text,
+        "reklama": reklama_text,
+        "obyazannosti": obyazannosti_text,
+        "transport": transport_text,
+        "advokaty": advokaty_text
+    }
     found = []
-    for key, text in RULES.items():
-        if q in text.lower():
+    for key, text in all_texts.items():
+        if query in text.lower():
             found.append(key)
     if not found:
-        bot.reply_to(m, "❌ Ничего не найдено. Используйте /start для списка команд.")
+        bot.reply_to(message, "❌ Ничего не найдено. Используйте /start для списка команд.")
     elif len(found) == 1:
-        bot.send_message(m.chat.id, RULES[found[0]])
+        command = found[0]
+        if command == "smi":
+            smi(message)
+        elif command == "gcl":
+            gcl(message)
+        elif command == "gov":
+            gov(message)
+        elif command == "d":
+            d_channel(message)
+        elif command == "palatki":
+            palatki(message)
+        elif command == "expel":
+            expel(message)
+        elif command == "lekcii":
+            lekcii(message)
+        elif command == "opisanie":
+            opisanie(message)
+        elif command == "reklama":
+            reklama(message)
+        elif command == "obyazannosti":
+            obyazannosti(message)
+        elif command == "transport":
+            transport(message)
+        elif command == "advokaty":
+            advokaty(message)
     else:
         names = {
             "smi": "СМИ", "gcl": "ГЦЛ", "gov": "Правительство", "d": "Канал /d",
@@ -402,8 +437,7 @@ def search(m):
         reply = f"🔍 Найдено {len(found)} результатов:\n\n"
         for k in found[:5]:
             reply += f"• {names[k]} — используйте команду /{k}\n"
-        bot.send_message(m.chat.id, reply)
+        bot.send_message(message.chat.id, reply)
 
-print("✅ Бот Arizona RP успешно запущен!")
+print("✅ Бот Arizona RP запущен!")
 bot.infinity_polling()
-EOF
