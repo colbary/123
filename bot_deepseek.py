@@ -253,19 +253,55 @@ def send_welcome(m):
 **Поиск:** просто напиши слово (например: жетон, палатка, штраф)"""
     bot.send_message(m.chat.id, text, parse_mode="Markdown")
 
-@bot.message_handler(commands=['smi']) def f(m): bot.send_message(m.chat.id, RULES["smi"])
-@bot.message_handler(commands=['gcl']) def f(m): bot.send_message(m.chat.id, RULES["gcl"])
-@bot.message_handler(commands=['gov']) def f(m): bot.send_message(m.chat.id, RULES["gov"])
-@bot.message_handler(commands=['d']) def f(m): bot.send_message(m.chat.id, RULES["d"])
-@bot.message_handler(commands=['palatki']) def f(m): bot.send_message(m.chat.id, RULES["palatki"])
-@bot.message_handler(commands=['expel']) def f(m): bot.send_message(m.chat.id, RULES["expel"])
-@bot.message_handler(commands=['lekcii']) def f(m): bot.send_message(m.chat.id, RULES["lekcii"])
-@bot.message_handler(commands=['opisanie']) def f(m): bot.send_message(m.chat.id, RULES["opisanie"])
-@bot.message_handler(commands=['reklama']) def f(m): bot.send_message(m.chat.id, RULES["reklama"])
-@bot.message_handler(commands=['obyazannosti']) def f(m): bot.send_message(m.chat.id, RULES["obyazannosti"])
-@bot.message_handler(commands=['transport']) def f(m): bot.send_message(m.chat.id, RULES["transport"])
-@bot.message_handler(commands=['advokaty']) def f(m): bot.send_message(m.chat.id, RULES["advokaty"])
+@bot.message_handler(commands=['smi'])
+def smi(m):
+    bot.send_message(m.chat.id, RULES["smi"])
 
+@bot.message_handler(commands=['gcl'])
+def gcl(m):
+    bot.send_message(m.chat.id, RULES["gcl"])
+
+@bot.message_handler(commands=['gov'])
+def gov(m):
+    bot.send_message(m.chat.id, RULES["gov"])
+
+@bot.message_handler(commands=['d'])
+def d(m):
+    bot.send_message(m.chat.id, RULES["d"])
+
+@bot.message_handler(commands=['palatki'])
+def palatki(m):
+    bot.send_message(m.chat.id, RULES["palatki"])
+
+@bot.message_handler(commands=['expel'])
+def expel(m):
+    bot.send_message(m.chat.id, RULES["expel"])
+
+@bot.message_handler(commands=['lekcii'])
+def lekcii(m):
+    bot.send_message(m.chat.id, RULES["lekcii"])
+
+@bot.message_handler(commands=['opisanie'])
+def opisanie(m):
+    bot.send_message(m.chat.id, RULES["opisanie"])
+
+@bot.message_handler(commands=['reklama'])
+def reklama(m):
+    bot.send_message(m.chat.id, RULES["reklama"])
+
+@bot.message_handler(commands=['obyazannosti'])
+def obyazannosti(m):
+    bot.send_message(m.chat.id, RULES["obyazannosti"])
+
+@bot.message_handler(commands=['transport'])
+def transport(m):
+    bot.send_message(m.chat.id, RULES["transport"])
+
+@bot.message_handler(commands=['advokaty'])
+def advokaty(m):
+    bot.send_message(m.chat.id, RULES["advokaty"])
+
+# ========== ПОИСК ==========
 @bot.message_handler(func=lambda m: True)
 def search(m):
     query = m.text.lower()
@@ -278,14 +314,17 @@ def search(m):
     elif len(found) == 1:
         bot.send_message(m.chat.id, found[0][1])
     else:
-        names = {"smi":"СМИ", "gcl":"ГЦЛ", "gov":"Правительство", "d":"/d", "palatki":"Палатки",
-                 "expel":"/expel", "lekcii":"Лекции", "opisanie":"Описание", "reklama":"Реклама",
-                 "obyazannosti":"Обязанности", "transport":"Транспорт", "advokaty":"Адвокаты"}
+        names = {
+            "smi":"СМИ", "gcl":"ГЦЛ", "gov":"Правительство", "d":"/d",
+            "palatki":"Палатки", "expel":"/expel", "lekcii":"Лекции",
+            "opisanie":"Описание", "reklama":"Реклама", "obyazannosti":"Обязанности",
+            "transport":"Транспорт", "advokaty":"Адвокаты"
+        }
         reply = f"🔍 Найдено {len(found)} результатов:\n\n"
         for k, _ in found[:5]:
             reply += f"• {names.get(k, k)} — используй /{k}\n"
         bot.send_message(m.chat.id, reply)
 
 if __name__ == "__main__":
-    print("✅ Бот запущен. Кнопок нет, только команды и поиск.")
+    print("✅ Бот Arizona RP запущен!")
     bot.infinity_polling()
